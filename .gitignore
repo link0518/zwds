@@ -10,8 +10,15 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.vite
+coverage
+*.tsbuildinfo
+.eslintcache
+.pnpm-store
 *.local
 .env
+.env.*
+!.env.example
 AGENTS.md
 claude.md
 # Editor directories and files
@@ -25,4 +32,5 @@ claude.md
 *.sln
 *.sw?
 .claude
-/ .agent
+.agent
+.shared
