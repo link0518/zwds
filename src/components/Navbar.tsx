@@ -18,8 +18,7 @@ const Navbar = ({ onNavigateHome, onOpenSavedCharts, isDark, onToggleTheme }: Na
   const navLinks: NavLink[] = [
     { name: '首页', action: () => onNavigateHome?.() },
     { name: '星盘', action: () => onOpenSavedCharts?.() },
-    { name: '六爻', href: 'https://jx3.faoo.de/', external: true },
-    { name: '梅花易数', href: 'https://mhys.faoo.de/', external: true },
+
     { name: '关于', action: () => setShowAboutModal(true) },
   ];
 
@@ -136,7 +135,15 @@ const Navbar = ({ onNavigateHome, onOpenSavedCharts, isDark, onToggleTheme }: Na
                   <h4 className="font-medium text-lz-ink mb-2">相关工具</h4>
                   <div className="flex flex-wrap gap-3">
                     <a
-                      href="https://jx3.faoo.de/"
+                      href="https://github.com/link0518/zwds"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-lz-red hover:text-lz-red-dark flex items-center gap-1"
+                    >
+                      紫微斗数 <ExternalLink size={12} />
+                    </a>
+                    <a
+                      href="https://github.com/link0518/liuyao"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-lz-red hover:text-lz-red-dark flex items-center gap-1"
@@ -144,7 +151,7 @@ const Navbar = ({ onNavigateHome, onOpenSavedCharts, isDark, onToggleTheme }: Na
                       六爻排盘 <ExternalLink size={12} />
                     </a>
                     <a
-                      href="https://mhys.faoo.de/"
+                      href="https://github.com/link0518/mhys"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-lz-red hover:text-lz-red-dark flex items-center gap-1"

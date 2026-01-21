@@ -103,7 +103,18 @@ npm run server
 
 ### Vercel 部署
 
-项目已配置 `vercel.json`，支持一键部署至 Vercel 平台。
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/link0518/zwds&env=OPENAI_BASE_URL,OPENAI_API_KEY,OPENAI_MODEL&envDescription=AI%20解读功能所需的环境变量配置&envLink=https://github.com/link0518/zwds#配置环境变量)
+
+点击上方按钮一键部署至 Vercel，部署时需配置以下环境变量：
+
+| 环境变量 | 必填 | 描述 | 示例 |
+|---------|:----:|------|------|
+| `OPENAI_BASE_URL` | ✅ | OpenAI 兼容 API 的基础地址 | `https://api.openai.com/v1` |
+| `OPENAI_API_KEY` | ✅ | API 密钥 | `sk-xxxxx` |
+| `OPENAI_MODEL` | ❌ | 模型名称（默认 `gpt-4o-mini`） | `gpt-4o`、`gpt-3.5-turbo` |
+
+> [!TIP]
+> 支持任何 OpenAI 兼容的 API 服务，如 Azure OpenAI、Anthropic Claude、本地 Ollama 等。
 
 ## 📁 项目结构
 
