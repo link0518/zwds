@@ -4,20 +4,7 @@ import { astro } from 'iztro';
 import type { IFunctionalPalace } from 'iztro/lib/astro/FunctionalPalace';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import Toast from './Toast';
-import type { AIInterpretProps, FormRawData, Settings, ToastState, ToastType } from '../types';
-
-const SETTINGS_STORAGE_KEY = 'zwds-settings';
-
-const DEFAULT_SETTINGS: Settings = {
-  hideTransitStars: false,
-  hideHoroscope: false,
-  hideBirthTime: false,
-  yearDivide: 'normal',
-  horoscopeDivide: 'exact',
-  ageDivide: 'normal',
-  dayDivide: 'current',
-  algorithm: 'default',
-};
+import type { AIInterpretProps, FormRawData, ToastState, ToastType } from '../types';
 
 const PALACE_NAMES = [
   '命宫',
@@ -104,20 +91,9 @@ const markdownComponents: Components = {
 };
 
 const getChineseHourIndex = (hour: number) => {
-  if (hour >= 23 || hour < 1) return 0;
+  if (hour === 23) return 12;
+  if (hour === 0) return 0;
   return Math.floor((hour + 1) / 2);
-};
-
-const loadSettings = () => {
-  try {
-    const savedSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
-    if (savedSettings) {
-      return { ...DEFAULT_SETTINGS, ...(JSON.parse(savedSettings) as Settings) };
-    }
-  } catch (error) {
-    console.error('Failed to load settings:', error);
-  }
-  return DEFAULT_SETTINGS;
 };
 
 const formatStar = (star: { name: string; brightness?: string; mutagen?: string }) => {
@@ -248,24 +224,11 @@ export default function AIInterpret({
   };
 
   const buildAnalysisPayload = useCallback(() => {
-    const settings = loadSettings();
     const timeIndex = getChineseHourIndex(data.raw.hour);
-    const astrolabe = astro.withOptions({
-      type: data.raw.type,
-      dateStr: formatDateStr(data.raw),
-      timeIndex,
-      gender: data.gender,
-      isLeapMonth: false,
-      fixLeap: data.raw.fixLeap,
-      language: 'zh-CN',
-      config: {
-        yearDivide: settings.yearDivide,
-        horoscopeDivide: settings.horoscopeDivide,
-        ageDivide: settings.ageDivide,
-        dayDivide: settings.dayDivide,
-        algorithm: settings.algorithm,
-      },
-    });
+    const dateStr = formatDateStr(data.raw);
+    const astrolabe = data.raw.type === 'solar'
+      ? astro.bySolar(dateStr, timeIndex, data.gender, data.raw.fixLeap, 'zh-CN')
+      : astro.byLunar(dateStr, timeIndex, data.gender, false, data.raw.fixLeap, 'zh-CN');
 
     // ... (Use same logic as before for payload construction - abbreviated for brevity but keeping core)
     // Actually need to include it all for it to work

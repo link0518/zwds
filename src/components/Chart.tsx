@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Lunar } from 'lunar-javascript';
 import { Iztrolabe } from 'react-iztro';
 import html2canvas from 'html2canvas';
 import ChartToolbar from './ChartToolbar';
@@ -22,6 +23,8 @@ const DEFAULT_SETTINGS: Settings = {
   algorithm: 'default',
 };
 
+const SHICHEN_LABELS = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥', '子'] as const;
+
 const isSameChartData = (savedChart: SavedChart, data: ChartData) => {
   const savedRaw = savedChart.data.raw;
   const currentRaw = data.raw;
@@ -38,6 +41,23 @@ const isSameChartData = (savedChart: SavedChart, data: ChartData) => {
     savedRaw.hour === currentRaw.hour &&
     savedRaw.fixLeap === currentRaw.fixLeap
   );
+};
+
+const formatLunarDate = (date: Date) => {
+  const lunar = Lunar.fromDate(date);
+  const year = lunar.getYear();
+  const month = lunar.getMonth();
+  const day = lunar.getDay();
+  const monthLabel = `${lunar.isLeap() ? '闰' : ''}${String(month).padStart(2, '0')}`;
+  const dayLabel = String(day).padStart(2, '0');
+  return `${year}-${monthLabel}-${dayLabel}`;
+};
+
+const formatRawDateStr = (raw: ChartData['raw']) => {
+  const year = parseInt(raw.year, 10);
+  const month = parseInt(raw.month, 10);
+  const day = parseInt(raw.day, 10);
+  return `${year}-${month}-${day}`;
 };
 
 export default function Chart({ data, onLoadChart }: ChartProps) {
@@ -78,12 +98,21 @@ export default function Chart({ data, onLoadChart }: ChartProps) {
   }, []);
 
   const getChineseHourIndex = (hour: number) => {
-    if (hour >= 23 || hour < 1) return 0;
+    if (hour === 23) return 12;
+    if (hour === 0) return 0;
     return Math.floor((hour + 1) / 2);
   };
 
-  const timeIndex = getChineseHourIndex(data.solarDate.getHours());
-  const dateStr = data.solarDate.toISOString().split('T')[0];
+  const buildChartName = useCallback(() => {
+    const displayName = data.name?.trim() ? data.name.trim() : '未命名';
+    const lunarDate = formatLunarDate(data.solarDate);
+    const shichen = SHICHEN_LABELS[getChineseHourIndex(data.raw.hour)];
+    return `${displayName}-${lunarDate}-${shichen}时（农）`;
+  }, [data.name, data.raw.hour, data.solarDate]);
+
+  const timeIndex = getChineseHourIndex(data.raw.hour);
+  const birthDateStr = formatRawDateStr(data.raw);
+  const solarDateStr = data.solarDate.toISOString().split('T')[0];
   const birthdayType = data.raw?.type === 'lunar' ? 'lunar' : 'solar';
 
   const showToast = useCallback((message: string, type: ToastType = 'success') => {
@@ -109,7 +138,7 @@ export default function Chart({ data, onLoadChart }: ChartProps) {
   }, [showToast]);
 
   const buildSavedChart = useCallback((): SavedChart => {
-    const chartName = data.name ? `${data.name}-命盘` : '未命名命盘';
+    const chartName = buildChartName();
     return {
       id: Date.now().toString(),
       name: chartName,
@@ -121,7 +150,7 @@ export default function Chart({ data, onLoadChart }: ChartProps) {
         raw: data.raw,
       },
     };
-  }, [data]);
+  }, [buildChartName, data]);
 
   const handleSettingsChange = useCallback((newSettings: Settings) => {
     setSettings(newSettings);
@@ -284,7 +313,7 @@ export default function Chart({ data, onLoadChart }: ChartProps) {
 
       const dataUrl = canvas.toDataURL('image/png', 1.0);
       const link = document.createElement('a');
-      link.download = `${data.name || '命盘'}-${dateStr}.png`;
+      link.download = `${data.name || '命盘'}-${solarDateStr}.png`;
       link.href = dataUrl;
       link.click();
 
@@ -293,7 +322,7 @@ export default function Chart({ data, onLoadChart }: ChartProps) {
       console.error('Failed to download:', error);
       showToast('下载失败，请重试', 'error');
     }
-  }, [data.name, dateStr, showToast]);
+  }, [data.name, solarDateStr, showToast]);
 
   const iztroOptions = useMemo(() => ({
     yearDivide: settings.yearDivide,
@@ -304,8 +333,8 @@ export default function Chart({ data, onLoadChart }: ChartProps) {
   }), [settings.yearDivide, settings.horoscopeDivide, settings.ageDivide, settings.dayDivide, settings.algorithm]);
 
   const iztroKey = useMemo(() =>
-    `${dateStr}-${timeIndex}-${birthdayType}-${data.gender}-${JSON.stringify(iztroOptions)}`,
-    [dateStr, timeIndex, birthdayType, data.gender, iztroOptions]);
+    `${birthDateStr}-${timeIndex}-${birthdayType}-${data.gender}-${JSON.stringify(iztroOptions)}`,
+    [birthDateStr, timeIndex, birthdayType, data.gender, iztroOptions]);
 
   const hiddenClasses = [
     settings.hideTransitStars && 'hide-transit-stars',
@@ -344,7 +373,7 @@ export default function Chart({ data, onLoadChart }: ChartProps) {
       >
         <Iztrolabe
           key={iztroKey}
-          birthday={dateStr}
+          birthday={birthDateStr}
           birthTime={timeIndex}
           birthdayType={birthdayType}
           gender={data.gender}
