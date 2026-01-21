@@ -19,6 +19,7 @@ export default function ChartToolbar({
   onDownload,
   onSave,
   onInterpret,
+  interpretLabel = '解读命盘',
   isFullscreen = false,
 }: ChartToolbarProps) {
   const [showTooltip, setShowTooltip] = useState<string | null>(null);
@@ -65,7 +66,7 @@ export default function ChartToolbar({
     toolbarItems.push({
       id: 'interpret',
       icon: Sparkles,
-      label: '解读命盘',
+      label: interpretLabel,
       shortcut: 'I',
       onClick: onInterpret,
     });

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import axios from 'axios';
 import { astro } from 'iztro';
 import type { IFunctionalPalace } from 'iztro/lib/astro/FunctionalPalace';
@@ -211,7 +211,13 @@ const CHIP_FIXED = 'bg-[var(--accent-soft)] text-[color:var(--ink)] border-trans
 const CTA_BUTTON = 'group relative inline-flex items-center justify-center gap-2 rounded-full px-8 py-3 text-base sm:text-lg font-serif text-white transition-all duration-300 bg-[radial-gradient(circle_at_top,#f3c08a,transparent_55%),linear-gradient(120deg,#c44b2d,#8f2f18)] shadow-[0_18px_35px_rgba(154,54,30,0.35)] hover:shadow-[0_22px_45px_rgba(154,54,30,0.4)] hover:-translate-y-0.5 active:translate-y-0 active:scale-95';
 
 
-export default function AIInterpret({ data, onClose, isModal = false }: AIInterpretProps) {
+export default function AIInterpret({
+  data,
+  onClose,
+  isModal = false,
+  initialResult = null,
+  onInterpretComplete,
+}: AIInterpretProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState>({ isVisible: false, message: '', type: 'success' });
@@ -225,6 +231,10 @@ export default function AIInterpret({ data, onClose, isModal = false }: AIInterp
   const hideToast = useCallback(() => {
     setToast((prev) => ({ ...prev, isVisible: false }));
   }, []);
+
+  useEffect(() => {
+    setResult(initialResult ?? null);
+  }, [initialResult, data]);
 
   const targetPalaces = useMemo(
     () => Array.from(new Set([...FIXED_TARGET_PALACES, ...extraTargetPalaces])),
@@ -382,7 +392,9 @@ export default function AIInterpret({ data, onClose, isModal = false }: AIInterp
       if (!content) {
         throw new Error('Empty AI response');
       }
-      setResult(content.trim());
+      const trimmedContent = content.trim();
+      setResult(trimmedContent);
+      onInterpretComplete?.(trimmedContent);
     } catch (error) {
       console.error('AI interpret failed:', error);
       showToast('AI 解读失败，请稍后重试', 'error');

@@ -72,6 +72,13 @@ export interface SavedChart {
   name: string;
   /** 保存时间戳 */
   savedAt: number;
+  /** 解读信息（可选） */
+  interpretation?: {
+    /** 解读内容（Markdown） */
+    content: string;
+    /** 解读时间戳 */
+    savedAt: number;
+  };
   /** 命盘数据（solarDate 为 ISO 字符串） */
   data: {
     solarDate: string;
@@ -167,6 +174,7 @@ export interface ChartToolbarProps {
   onDownload?: () => void;
   onSave?: () => void;
   onInterpret?: () => void;
+  interpretLabel?: string;
   isFullscreen?: boolean;
 }
 
@@ -200,6 +208,8 @@ export interface ToastProps {
 export interface AIInterpretProps {
   data: ChartData;
   startSignal?: number;
+  initialResult?: string | null;
+  onInterpretComplete?: (content: string) => void;
   onClose?: () => void;
   isModal?: boolean;
 }

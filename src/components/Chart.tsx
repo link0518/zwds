@@ -6,7 +6,7 @@ import SettingsModal from './SettingsModal';
 import SavedChartsModal from './SavedChartsModal';
 import AIInterpret from './AIInterpret';
 import Toast from './Toast';
-import type { ChartProps, SavedChart, Settings, ToastState, ToastType } from '../types';
+import type { ChartData, ChartProps, SavedChart, Settings, ToastState, ToastType } from '../types';
 
 const STORAGE_KEY = 'zwds-saved-charts';
 const SETTINGS_STORAGE_KEY = 'zwds-settings';
@@ -22,6 +22,24 @@ const DEFAULT_SETTINGS: Settings = {
   algorithm: 'default',
 };
 
+const isSameChartData = (savedChart: SavedChart, data: ChartData) => {
+  const savedRaw = savedChart.data.raw;
+  const currentRaw = data.raw;
+  return (
+    savedChart.data.solarDate === data.solarDate.toISOString() &&
+    savedChart.data.gender === data.gender &&
+    savedChart.data.name === data.name &&
+    savedRaw.name === currentRaw.name &&
+    savedRaw.gender === currentRaw.gender &&
+    savedRaw.type === currentRaw.type &&
+    savedRaw.year === currentRaw.year &&
+    savedRaw.month === currentRaw.month &&
+    savedRaw.day === currentRaw.day &&
+    savedRaw.hour === currentRaw.hour &&
+    savedRaw.fixLeap === currentRaw.fixLeap
+  );
+};
+
 export default function Chart({ data, onLoadChart }: ChartProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
@@ -30,6 +48,7 @@ export default function Chart({ data, onLoadChart }: ChartProps) {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [toast, setToast] = useState<ToastState>({ isVisible: false, message: '', type: 'success' });
   const [showAI, setShowAI] = useState(false);
+  const [activeSavedChartId, setActiveSavedChartId] = useState<string | null>(null);
 
   const chartContainerRef = useRef<HTMLDivElement | null>(null);
   const iztrolabeRef = useRef<HTMLDivElement | null>(null);
@@ -75,19 +94,23 @@ export default function Chart({ data, onLoadChart }: ChartProps) {
     setToast((prev) => ({ ...prev, isVisible: false }));
   }, []);
 
-  const handleSettingsChange = useCallback((newSettings: Settings) => {
-    setSettings(newSettings);
+  const persistSavedCharts = useCallback((charts: SavedChart[], errorMessage?: string) => {
     try {
-      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(newSettings));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(charts));
+      setSavedCharts(charts);
+      return true;
     } catch (error) {
-      console.error('Failed to save settings:', error);
+      console.error('Failed to save charts:', error);
+      if (errorMessage) {
+        showToast(errorMessage, 'error');
+      }
+      return false;
     }
-  }, []);
+  }, [showToast]);
 
-  const handleSave = useCallback(() => {
+  const buildSavedChart = useCallback((): SavedChart => {
     const chartName = data.name ? `${data.name}-命盘` : '未命名命盘';
-
-    const chartToSave: SavedChart = {
+    return {
       id: Date.now().toString(),
       name: chartName,
       savedAt: Date.now(),
@@ -98,17 +121,25 @@ export default function Chart({ data, onLoadChart }: ChartProps) {
         raw: data.raw,
       },
     };
+  }, [data]);
 
+  const handleSettingsChange = useCallback((newSettings: Settings) => {
+    setSettings(newSettings);
     try {
-      const updatedCharts = [chartToSave, ...savedCharts];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedCharts));
-      setSavedCharts(updatedCharts);
-      showToast(`"${chartName}" 保存成功`, 'success');
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(newSettings));
     } catch (error) {
-      console.error('Failed to save chart:', error);
-      showToast('保存失败，请重试', 'error');
+      console.error('Failed to save settings:', error);
     }
-  }, [data, savedCharts, showToast]);
+  }, []);
+
+  const handleSave = useCallback(() => {
+    const chartToSave = buildSavedChart();
+    const updatedCharts = [chartToSave, ...savedCharts];
+    const saved = persistSavedCharts(updatedCharts, '保存失败，请重试');
+    if (saved) {
+      showToast(`"${chartToSave.name}" 保存成功`, 'success');
+    }
+  }, [buildSavedChart, persistSavedCharts, savedCharts, showToast]);
 
   const handleShowSavedCharts = useCallback(() => {
     setSavedChartsModalOpen(true);
@@ -153,8 +184,55 @@ export default function Chart({ data, onLoadChart }: ChartProps) {
   }, []);
 
   const handleStartAI = useCallback(() => {
+    const matchedChart = savedCharts.find((chart) => isSameChartData(chart, data));
+    if (matchedChart) {
+      setActiveSavedChartId(matchedChart.id);
+      setShowAI(true);
+      return;
+    }
+
+    const newChart = buildSavedChart();
+    const updatedCharts = [newChart, ...savedCharts];
+    const saved = persistSavedCharts(updatedCharts, '自动保存失败，请重试');
+    if (saved) {
+      setActiveSavedChartId(newChart.id);
+    }
     setShowAI(true);
-  }, []);
+  }, [buildSavedChart, data, persistSavedCharts, savedCharts]);
+
+  const handleInterpretComplete = useCallback((content: string) => {
+    const interpretedAt = Date.now();
+    const applyInterpretation = (chartId: string) => savedCharts.map((chart) => (
+      chart.id === chartId
+        ? { ...chart, interpretation: { content, savedAt: interpretedAt } }
+        : chart
+    ));
+
+    if (activeSavedChartId) {
+      const updatedCharts = applyInterpretation(activeSavedChartId);
+      const hasTarget = updatedCharts.some((chart) => chart.id === activeSavedChartId);
+      if (hasTarget) {
+        persistSavedCharts(updatedCharts, '保存解读失败，请重试');
+        return;
+      }
+    }
+
+    const matchedChart = savedCharts.find((chart) => isSameChartData(chart, data));
+    if (matchedChart) {
+      const updatedCharts = applyInterpretation(matchedChart.id);
+      persistSavedCharts(updatedCharts, '保存解读失败，请重试');
+      setActiveSavedChartId(matchedChart.id);
+      return;
+    }
+
+    const newChart = buildSavedChart();
+    const updatedCharts = [
+      { ...newChart, interpretation: { content, savedAt: interpretedAt } },
+      ...savedCharts,
+    ];
+    persistSavedCharts(updatedCharts, '保存解读失败，请重试');
+    setActiveSavedChartId(newChart.id);
+  }, [activeSavedChartId, buildSavedChart, data, persistSavedCharts, savedCharts]);
 
   const handleDownload = useCallback(async () => {
     if (!iztrolabeRef.current) {
@@ -235,6 +313,12 @@ export default function Chart({ data, onLoadChart }: ChartProps) {
     settings.hideBirthTime && 'hide-birth-time',
   ].filter(Boolean).join(' ');
 
+  const currentSavedChart = useMemo(
+    () => savedCharts.find((chart) => isSameChartData(chart, data)),
+    [savedCharts, data],
+  );
+  const currentInterpretation = currentSavedChart?.interpretation ?? null;
+
   return (
     <div
       ref={chartContainerRef}
@@ -248,6 +332,7 @@ export default function Chart({ data, onLoadChart }: ChartProps) {
           onDownload={handleDownload}
           onSave={handleSave}
           onInterpret={handleStartAI}
+          interpretLabel={currentInterpretation ? '查看解读' : '解读命盘'}
           isFullscreen={isFullscreen}
         />
       )}
@@ -272,7 +357,12 @@ export default function Chart({ data, onLoadChart }: ChartProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
           <AIInterpret
             data={data}
-            onClose={() => setShowAI(false)}
+            initialResult={currentInterpretation?.content ?? null}
+            onInterpretComplete={handleInterpretComplete}
+            onClose={() => {
+              setShowAI(false);
+              setActiveSavedChartId(null);
+            }}
             isModal
           />
         </div>
